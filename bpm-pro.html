@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Studio BPM Tools - Tech Mridul</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #121212; color: #e5e5e5; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        
+        .tap-btn-active { transform: scale(0.95); background-color: #06b6d4 !important; box-shadow: 0 0 20px rgba(6, 182, 212, 0.6); }
+        .blink-dot { width: 12px; height: 12px; border-radius: 50%; background-color: #333; transition: background-color 0.05s; }
+        .blink-active { background-color: #00ff88; box-shadow: 0 0 15px #00ff88; }
+        
+        .value-cell:hover { cursor: pointer; color: #fff; text-decoration: underline; }
+        .copied-tooltip { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #06b6d4; color: black; padding: 8px 16px; border-radius: 20px; font-weight: bold; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 50; }
+
+        /* Sound Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #06b6d4; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #06b6d4; }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-4 md:p-8">
+
+    <div class="w-full max-w-4xl bg-[#1e1e1e] rounded-2xl shadow-2xl border border-gray-800 overflow-hidden">
+        
+        <div class="bg-[#181818] p-3 flex justify-between items-center border-b border-gray-700">
+            <span class="text-xs text-gray-500 uppercase tracking-widest font-semibold">Studio Tools v3.0 (Audio)</span>
+            
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400 font-bold">CLICK TRACK</span>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="toggle" id="sound-toggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                        <label for="sound-toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-600 cursor-pointer"></label>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 border-l border-gray-700 pl-4">
+                    <span class="text-xs text-gray-400">VISUAL</span>
+                    <div id="metronome-dot" class="blink-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 md:p-10">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">Delay & Frequency Calculator</h1>
+                <p class="text-gray-400 text-sm">Calculate Ms, Hz with <strong>Audio Metronome</strong> & Tap Tempo.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 items-center">
+                
+                <div class="bg-[#252525] p-6 rounded-xl border border-gray-700 flex flex-col items-center">
+                    <label class="text-gray-400 text-xs uppercase font-bold mb-2">Project BPM</label>
+                    <div class="relative flex items-center">
+                        <button id="decrease-bpm" class="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-l-lg text-white font-bold text-xl">-</button>
+                        <input type="number" id="bpm" value="120" min="10" max="999" 
+                            class="w-32 h-16 text-center text-5xl font-bold bg-transparent text-cyan-400 border-y-2 border-gray-600 focus:border-cyan-500 focus:outline-none">
+                        <button id="increase-bpm" class="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-r-lg text-white font-bold text-xl">+</button>
+                    </div>
+                </div>
+
+                <div class="bg-[#252525] p-6 rounded-xl border border-gray-700 flex flex-col items-center text-center">
+                    <label class="text-gray-400 text-xs uppercase font-bold mb-2">Don't know the BPM?</label>
+                    <button id="tap-btn" class="w-full h-16 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 font-bold text-lg rounded-lg transition-all uppercase tracking-wider">
+                        Tap Here / Press Space
+                    </button>
+                    <p class="text-xs text-gray-500 mt-2">Tap 4 times to detect tempo</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-gray-700">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-[#252525] text-gray-400 text-xs uppercase tracking-wider">
+                            <th class="p-4 font-bold border-b border-gray-700">Note Length</th>
+                            <th class="p-4 font-bold border-b border-gray-700 text-right text-cyan-400">Time (ms)</th>
+                            <th class="p-4 font-bold border-b border-gray-700 text-right text-purple-400">Freq (Hz)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body" class="text-gray-300 font-mono text-sm md:text-base">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-[#151515] p-6 text-center border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-3">Pro Tip: Turn on the 'Click Track' to hear the tempo.</p>
+            <div class="inline-block px-4 py-2 bg-[#1a1a1a] rounded-full border border-gray-800 mt-2">
+                <p class="text-[11px] text-gray-400 uppercase tracking-wider">
+                    Developed by <span class="text-cyan-500 font-bold">Mursedul Huque (Tech Mridul)</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="copied-tooltip">Copied!</div>
+
+    <script>
+        // --- DOM ELEMENTS ---
+        const bpmInput = document.getElementById('bpm');
+        const resultsBody = document.getElementById('results-body');
+        const tapBtn = document.getElementById('tap-btn');
+        const metronomeDot = document.getElementById('metronome-dot');
+        const soundToggle = document.getElementById('sound-toggle');
+        const decreaseBtn = document.getElementById('decrease-bpm');
+        const increaseBtn = document.getElementById('increase-bpm');
+        const toast = document.getElementById('toast');
+
+        // --- STATE ---
+        let tapTimes = [];
+        let tapTimeout;
+        let metronomeInterval;
+        let audioCtx = null;
+        let isSoundEnabled = false;
+
+        // --- CONSTANTS ---
+        const notes = [
+            { name: '1/1 (Whole Note)', ratio: 4 },
+            { name: '1/2 (Half Note)', ratio: 2 },
+            { name: '1/4 (Quarter Note)', ratio: 1 },
+            { name: '1/8 (Eighth Note)', ratio: 0.5 },
+            { name: '1/16 (Sixteenth)', ratio: 0.25 },
+            { name: '1/32 (Thirty-Second)', ratio: 0.125 },
+            { name: '1/64 (Sixty-Fourth)', ratio: 0.0625 }
+        ];
+
+        // --- AUDIO ENGINE (Web Audio API) ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playClick() {
+            if (!isSoundEnabled || !audioCtx) return;
+
+            // Create a short, sharp beep (synthesized sound)
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.frequency.value = 1000; // 1000Hz tone (High beep)
+            gain.gain.value = 0.1; // Volume (10%)
+
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.05); // Quick fade out
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        // --- CORE LOGIC ---
+        function calculate() {
+            let bpm = parseFloat(bpmInput.value);
+            if (!bpm || bpm <= 0) bpm = 1;
+
+            const quarterNoteMs = 60000 / bpm;
+            resultsBody.innerHTML = '';
+
+            notes.forEach(note => {
+                const msNormal = quarterNoteMs * note.ratio;
+                const msDotted = msNormal * 1.5;
+                const msTriplet = msNormal * (2/3);
+                const hzNormal = (1000 / msNormal).toFixed(2);
+                const hzDotted = (1000 / msDotted).toFixed(2);
+                const hzTriplet = (1000 / msTriplet).toFixed(2);
+
+                const row = `
+                    <tr class="border-b border-gray-800 hover:bg-[#2a2a2a] transition-colors group">
+                        <td class="p-3 md:p-4 font-medium text-white border-r border-gray-800 bg-[#222]">${note.name}</td>
+                        <td class="p-3 md:p-4 text-right">
+                            <div class="flex flex-col">
+                                <span class="text-cyan-300 font-bold value-cell" onclick="copy('${msNormal.toFixed(2)}')">${msNormal.toFixed(2)} ms</span>
+                                <span class="text-[10px] text-gray-500">Standard</span>
+                            </div>
+                        </td>
+                        <td class="p-3 md:p-4 text-right border-l border-gray-800">
+                             <span class="text-purple-300 font-bold value-cell" onclick="copy('${hzNormal}')">${hzNormal} Hz</span>
+                        </td>
+                    </tr>
+                    <tr class="bg-[#1a1a1a] border-b border-gray-800">
+                        <td class="p-2 text-right text-xs text-gray-500 uppercase">↳ Dotted</td>
+                        <td class="p-2 text-right"><span class="text-cyan-600/80 text-xs value-cell" onclick="copy('${msDotted.toFixed(2)}')">${msDotted.toFixed(2)} ms</span></td>
+                        <td class="p-2 text-right border-l border-gray-800"><span class="text-purple-600/80 text-xs value-cell" onclick="copy('${hzDotted}')">${hzDotted} Hz</span></td>
+                    </tr>
+                    <tr class="bg-[#1a1a1a] border-b border-gray-700">
+                        <td class="p-2 text-right text-xs text-gray-500 uppercase">↳ Triplet</td>
+                        <td class="p-2 text-right"><span class="text-cyan-600/80 text-xs value-cell" onclick="copy('${msTriplet.toFixed(2)}')">${msTriplet.toFixed(2)} ms</span></td>
+                        <td class="p-2 text-right border-l border-gray-800"><span class="text-purple-600/80 text-xs value-cell" onclick="copy('${hzTriplet}')">${hzTriplet} Hz</span></td>
+                    </tr>
+                `;
+                resultsBody.insertAdjacentHTML('beforeend', row);
+            });
+
+            startMetronome(bpm);
+        }
+
+        // --- VISUAL & AUDIO METRONOME ---
+        function startMetronome(bpm) {
+            clearInterval(metronomeInterval);
+            const intervalMs = 60000 / bpm;
+            
+            metronomeInterval = setInterval(() => {
+                // 1. Blink Visual
+                metronomeDot.classList.add('blink-active');
+                setTimeout(() => metronomeDot.classList.remove('blink-active'), 100);
+                
+                // 2. Play Audio (If enabled)
+                playClick();
+            }, intervalMs);
+        }
+
+        // --- TAP TEMPO ---
+        function handleTap() {
+            const now = Date.now();
+            tapBtn.classList.add('tap-btn-active');
+            setTimeout(() => tapBtn.classList.remove('tap-btn-active'), 100);
+
+            if (tapTimes.length > 0) {
+                const diff = now - tapTimes[tapTimes.length - 1];
+                if (diff > 3000) tapTimes = [];
+            }
+            tapTimes.push(now);
+
+            if (tapTimes.length > 1) {
+                const intervals = [];
+                for (let i = 1; i < tapTimes.length; i++) {
+                    intervals.push(tapTimes[i] - tapTimes[i - 1]);
+                }
+                const avgMs = intervals.reduce((a, b) => a + b) / intervals.length;
+                const calculatedBpm = Math.round(60000 / avgMs);
+                
+                if (calculatedBpm > 10 && calculatedBpm < 999) {
+                    bpmInput.value = calculatedBpm;
+                    tapBtn.textContent = `TAPPING... ${calculatedBpm} BPM`;
+                    calculate();
+                }
+            }
+
+            clearTimeout(tapTimeout);
+            tapTimeout = setTimeout(() => {
+                tapTimes = [];
+                tapBtn.textContent = "TAP HERE / PRESS SPACE";
+            }, 3000);
+        }
+
+        // --- EVENT LISTENERS ---
+        soundToggle.addEventListener('change', (e) => {
+            isSoundEnabled = e.target.checked;
+            if (isSoundEnabled) {
+                initAudio(); // Initialize audio context on first user interaction (Browser Policy)
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }
+        });
+
+        bpmInput.addEventListener('input', calculate);
+        tapBtn.addEventListener('mousedown', handleTap);
+        document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); handleTap(); } });
+        decreaseBtn.addEventListener('click', () => { bpmInput.value = Math.max(10, parseInt(bpmInput.value) - 1); calculate(); });
+        increaseBtn.addEventListener('click', () => { bpmInput.value = Math.min(999, parseInt(bpmInput.value) + 1); calculate(); });
+        
+        window.copy = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                toast.style.opacity = '1'; setTimeout(() => toast.style.opacity = '0', 1500);
+            });
+        }
+
+        calculate();
+    </script>
+</body>
+</html>
